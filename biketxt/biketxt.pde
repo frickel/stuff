@@ -1,36 +1,41 @@
-/*
-   08. August 2009 by Frickel
-   biketxt alpha for atmega168 running at 16 MHz
-*/
 
+/*
+BikeTXT alpha2 - Based on Frank's LED-Matrix code
+08. August 2009 by Frickel
+
+Changelog:
+22. August 2009 by Frickel - Use a more precise timing for delay
+*/
+ 
 int i, j, k, x,y,xx,yy, lum=0,newscr=0,tmp;
 int scrollx,scrolly;
-
+ 
 #define SCRdx 1
 #define SCRdy 6
-#define OSf 1        // Oversampling factor    <=5, sonst Speicher voll. Max 2 beim atmega168.
-
+#define OSf 1 // Oversampling factor <=5, Up to 2 on mega168
+ 
 // int=2 Byte
 int scr[SCRdx][SCRdy]; // (real) screen
 int vscr[SCRdx*OSf][SCRdy*OSf]; // virtual (high res) screen
 
-#define CFONTwidth  0x5
+// Our font is 5x7 
+#define CFONTwidth 0x5
 #define CFONTwidth2 0x7
 #define CFONTstart 0x40
-#define CFONTend   0x5b
-
-int buttonPin = 10;
-int ledSpeed = 1;
-
+#define CFONTend 0x5b
+ 
+int buttonPin = 10;	// Button used to increase delay
+int ledSpeed = 400;	// Let's begin with a 400µs delay
+ 
 int buttonState;
 int lastButtonState;
-
+ 
 int linePins[] = { 2, 3, 4, 5, 6, 7 };
-
+ 
 char cfont[]=
 { 0x00, 0x00, 0x00, 0x00, 0x00, // SPACE (0x40 or 0x20)
-  0x38, 0x16, 0x11, 0x16, 0x38, // A     (0x41)
-  0x3f, 0x25, 0x25, 0x26, 0x18, // B     (0x42)
+  0x38, 0x16, 0x11, 0x16, 0x38, // A (0x41)
+  0x3f, 0x25, 0x25, 0x26, 0x18, // B (0x42)
   0x1e, 0x21, 0x21, 0x21, 0x12, // C
   0x3f, 0x21, 0x21, 0x21, 0x1e, // D
   0x3f, 0x25, 0x25, 0x25, 0x21, // E
@@ -56,23 +61,43 @@ char cfont[]=
   0x01, 0x02, 0x3c, 0x02, 0x01, // Y
   0x31, 0x29, 0x25, 0x23, 0x21, // Z
 };
-
-//char myoutstring[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ  ";
-char myoutstring[]="GHOSTRIDER BIKE  ";
+ 
+//char myoutstring[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+char myoutstring[]="BIKETXT ";
 int myoutstringpos=0;
 
+// A more precise delay funcion (µs) - 4 cycles
+void delay_us(unsigned int us)
+{
+  if (--us == 0)
+    return;
+    
+  us <<= 2;
+  us -= 2;
+  
+  cli();
+  
+  __asm__ __volatile__ (
+    "1: sbiw %0,1" "\n\t"
+    "brne 1b" : "=w" (us) : "0" (us)
+  );
+  
+  sei();
+}
+ 
 void setup()
 {
   for(i=2;i<8;i++) pinMode(i, OUTPUT);
   pinMode(buttonPin, INPUT);
   lum=9999;
   newscr=0;
-  
+  // Initialize Serial for debugging purposes
   Serial.begin(9600);
 }
+
 void vscr2scr()
 { int x,y,xx,yy,xxx,yyy,sum;
-  for(x=0; x<SCRdx; x++) 
+  for(x=0; x<SCRdx; x++)
   { xxx=x*OSf;
     for(y=0; y<SCRdy; y++)
     { yyy=y*OSf;
@@ -82,12 +107,13 @@ void vscr2scr()
     }
   }
 }
-#define ANIMm 2
 
+#define ANIMm 2
+ 
 void loop()
 { newscr++;
   if (newscr%(ANIMm)==0)
-  { 
+  {
     newscr=0;
     int p0=myoutstringpos/OSf;
     //int p0=myoutstringpos/(OSf-1); // Zeichen nur (OSf-1)/OSf breit ausgeben
@@ -101,28 +127,21 @@ void loop()
     
     for(y=0; y<SCRdy*OSf; y++)
     {
-      vscr[SCRdx*OSf-1][y]=0;  // clear
+      vscr[SCRdx*OSf-1][y]=0; // clear
     }
     
     for (int b=1, p=0; b<0x40 && p<OSf*6; b*=2, p+=OSf) if (bits&b)
       for(y=0; y<OSf; y++) vscr[OSf*SCRdx-1][p+y]=256;
     myoutstringpos++;
     
-    /* Scrolling temporarily disabled
-    for(y=0; y<SCRdy*OSf; y++)
-    { for(x=0; x<SCRdx*OSf-1; x++) vscr[x][y]=vscr[x+1][y];
-      vscr[SCRdx*OSf-1][y]=0;  // clear
-    }
-    */
     vscr2scr();
   }
   
   lum+=16; if (lum>254) lum=0;
-
+ 
   for(y=0;y<6;y++)
   {
-    digitalWrite(linePins[y], vscr[0][y]>128?HIGH:LOW); 
-    // Serial.println(scr[0][y]);
+    digitalWrite(linePins[y], vscr[0][y]>128?HIGH:LOW);
   }
   
   buttonState = digitalRead(buttonPin);
@@ -130,13 +149,20 @@ void loop()
   if (buttonState != lastButtonState){
     
     if (buttonState == HIGH){
-      ledSpeed++;
+      if (ledSpeed<65535){
+        ledSpeed+=100;
+      }
+        else
+      {
+        ledSpeed=400;
+      }
+      
       Serial.print("LED blinking speed increased to ");
       Serial.println(ledSpeed);
     }
   
   lastButtonState = buttonState;
   }
-
-  delay(ledSpeed);
+ 
+  delayus(ledSpeed);
 }
