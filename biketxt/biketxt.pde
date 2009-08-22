@@ -164,5 +164,5 @@ void loop()
   lastButtonState = buttonState;
   }
  
-  delayus(ledSpeed);
+  delay_us(ledSpeed);
 }
