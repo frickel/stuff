@@ -9,16 +9,19 @@ Changelog:
  
 int i, j, k, x,y,xx,yy, lum=0,newscr=0,tmp;
 int scrollx,scrolly;
- 
+
+// We've got a virtual resolution of 1x6 on our BikeTXT
 #define SCRdx 1
 #define SCRdy 6
-#define OSf 1 // Oversampling factor <=5, Up to 2 on mega168
+
+// Oversampling factor <=5, Up to 2 on a ATMega168, 5 on ATMega328..
+#define OSf 1
  
 // int=2 Byte
 int scr[SCRdx][SCRdy]; // (real) screen
 int vscr[SCRdx*OSf][SCRdy*OSf]; // virtual (high res) screen
 
-// Our font is 5x7 
+// Our font is 5x7
 #define CFONTwidth 0x5
 #define CFONTwidth2 0x7
 #define CFONTstart 0x40
@@ -66,7 +69,11 @@ char cfont[]=
 char myoutstring[]="BIKETXT ";
 int myoutstringpos=0;
 
-// A more precise delay funcion (µs) - 4 cycles
+/* A more precise delay funcion (µs) - 4 cycles
+   Seems to be more efficient than delayMicroseconds()
+   (saves some bytes).
+*/
+
 void delay_us(unsigned int us)
 {
   if (--us == 0)
@@ -91,8 +98,6 @@ void setup()
   pinMode(buttonPin, INPUT);
   lum=9999;
   newscr=0;
-  // Initialize Serial for debugging purposes
-  Serial.begin(9600);
 }
 
 void vscr2scr()
@@ -156,9 +161,6 @@ void loop()
       {
         ledSpeed=400;
       }
-      
-      Serial.print("LED blinking speed increased to ");
-      Serial.println(ledSpeed);
     }
   
   lastButtonState = buttonState;
