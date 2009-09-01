@@ -1,38 +1,44 @@
-
 /*
 BikeTXT alpha2 - Based on Frank's LED-Matrix code
 08. August 2009 by Frickel
-
+ 
 Changelog:
 22. August 2009 by Frickel - Use a more precise timing for delay
+01. September 2009 by Frickel - Some cleanup.
 */
  
-int i, j, k, x,y,xx,yy, lum=0,newscr=0,tmp;
-int scrollx,scrolly;
+int i, j, k, x, xx , y, yy;
+int lum=0, newscr=0, tmp;
 
+int scrollx,scrolly;
+ 
 // We've got a virtual resolution of 1x6 on our BikeTXT
 #define SCRdx 1
 #define SCRdy 6
-
+ 
 // Oversampling factor <=5, Up to 2 on a ATMega168, 5 on ATMega328..
 #define OSf 1
  
 // int=2 Byte
 int scr[SCRdx][SCRdy]; // (real) screen
 int vscr[SCRdx*OSf][SCRdy*OSf]; // virtual (high res) screen
-
+ 
 // Our font is 5x7
 #define CFONTwidth 0x5
 #define CFONTwidth2 0x7
+
+// See 'char cfont[]={..}' below
 #define CFONTstart 0x40
 #define CFONTend 0x5b
  
-int buttonPin = 10;	// Button used to increase delay
-int ledSpeed = 400;	// Let's begin with a 400µs delay
- 
+int buttonPin = 10; // Button used to increase delay
+int ledSpeed = 400; // Let's begin with a 400µs delay
+
+// Button states - uarghs.
 int buttonState;
 int lastButtonState;
  
+// The pins we've attached our LED's to
 int linePins[] = { 2, 3, 4, 5, 6, 7 };
  
 char cfont[]=
@@ -68,28 +74,27 @@ char cfont[]=
 //char myoutstring[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
 char myoutstring[]="BIKETXT ";
 int myoutstringpos=0;
-
+ 
 /* A more precise delay funcion (µs) - 4 cycles
-   Seems to be more efficient than delayMicroseconds()
-   (saves some bytes).
+Seems to be more efficient than delayMicroseconds()
+(saves some bytes).
 */
-
+ 
 void delay_us(unsigned int us)
 {
   if (--us == 0)
     return;
     
-  us <<= 2;
-  us -= 2;
+  us <<= 2; us -= 2;
   
-  cli();
+  cli(); // Clear global interrupt enable bit
   
   __asm__ __volatile__ (
     "1: sbiw %0,1" "\n\t"
     "brne 1b" : "=w" (us) : "0" (us)
   );
   
-  sei();
+  sei(); // Set global interrupt enable bit
 }
  
 void setup()
@@ -99,19 +104,7 @@ void setup()
   lum=9999;
   newscr=0;
 }
-
-void vscr2scr()
-{ int x,y,xx,yy,xxx,yyy,sum;
-  for(x=0; x<SCRdx; x++)
-  { xxx=x*OSf;
-    for(y=0; y<SCRdy; y++)
-    { yyy=y*OSf;
-      sum=0;
-      for(xx=0; xx<OSf; xx++) for(yy=0; yy<OSf; yy++) sum+=vscr[xxx+xx][yyy+yy];
-      scr[x][y]=sum/OSf/OSf;
-    }
-  }
-}
+ 
 
 #define ANIMm 2
  
@@ -121,50 +114,46 @@ void loop()
   {
     newscr=0;
     int p0=myoutstringpos/OSf;
-    //int p0=myoutstringpos/(OSf-1); // Zeichen nur (OSf-1)/OSf breit ausgeben
     int p2=p0/CFONTwidth2;
     char c=myoutstring[p2];
     if (c==0) { myoutstringpos=0; p0=0; p2=p0/CFONTwidth2; c=myoutstring[p2]; }
     int p1=p0%CFONTwidth2;
     int bits=0;
-    if (c==0x20) c=0x40; // 0x40 is SPACE !
+    if (c==0x20) c=0x40; // 0x40 is SPACE. Normally it would be 0x20
+                         // which would mean we have to define all chars
+                         // from 0x20 to 0x40.
+                         
     if (p1<CFONTwidth && c<CFONTend) bits=cfont[(c-CFONTstart)*CFONTwidth+p1];
     
     for(y=0; y<SCRdy*OSf; y++)
     {
-      vscr[SCRdx*OSf-1][y]=0; // clear
+      vscr[SCRdx*OSf-1][y]=0;  // Clear our virtual screen
     }
     
     for (int b=1, p=0; b<0x40 && p<OSf*6; b*=2, p+=OSf) if (bits&b)
       for(y=0; y<OSf; y++) vscr[OSf*SCRdx-1][p+y]=256;
     myoutstringpos++;
-    
-    vscr2scr();
   }
   
   lum+=16; if (lum>254) lum=0;
  
-  for(y=0;y<6;y++)
+  for(y=0;y<SCRdy;y++)
   {
     digitalWrite(linePins[y], vscr[0][y]>128?HIGH:LOW);
   }
   
+  // Increase speed each time our pushbutton is pressed
   buttonState = digitalRead(buttonPin);
   
   if (buttonState != lastButtonState){
     
     if (buttonState == HIGH){
-      if (ledSpeed<65535){
-        ledSpeed+=100;
-      }
-        else
-      {
-        ledSpeed=400;
-      }
+        ledSpeed+=100;  // Feel free to use a more precise value here
     }
   
   lastButtonState = buttonState;
   }
  
   delay_us(ledSpeed);
+  // End of our Quick-and-Dirty speed changing routine
 }
