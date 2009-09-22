@@ -6,19 +6,22 @@
  
 int i, j, k, x,y,xx,yy, lum=0,newscr=0,tmp;
 int scrollx,scrolly;
+char c;
  
 #define SCRdx 8
 #define SCRdy 8
-#define OSf 3 // Oversampling factor <=5, sonst Speicher voll. Max 2 beim atmega168.
+#define OSf 2 // Oversampling factor <=5, sonst Speicher voll. Max 2 beim atmega168.
+#define ANIMm ((int)(   32   /OSf))
+int YEnlA = 84; // 1 bzw. 76;
+int YEnlB = 60; // 1 bzw. 60;
+int YEnl = YEnlA>1 ? 0 : 0; // vergr. der pixel y
+int glimmer = 1; // 0off/1on
+
+int myoutstringmax=512;
  
 // int=2 Byte
 int scr[SCRdx][SCRdy]; // (real) screen
 int vscr[SCRdx*OSf][SCRdy*OSf]; // virtual (high res) screen
- 
-#define CFONTwidth 0x5
-#define CFONTwidth2 0x7
-#define CFONTstart 0x40
-#define CFONTend 0x5b
  
 int buttonPin = 10;
 int ledSpeed = 1;
@@ -34,8 +37,47 @@ int linePins[] = { 4, 5, 6, 7, 8, 9, 10, 11 };
 int shiftDataPin = 3;
 int shiftClockPin = 2;
  
+#define CFONTwidth 0x5
+#define CFONTwidth2 0x7
+#define CFONTstart 0x20
+#define CFONTend 0x5b
+ 
 char cfont[]=
-{ 0x00, 0x00, 0x00, 0x00, 0x00, // SPACE (0x40 or 0x20)
+{
+  0x00, 0x00, 0x00, 0x00, 0x00, // SPACE 0x20
+  0x00, 0x00, 0x2f, 0x00, 0x00, // !
+  0x00, 0x03, 0x00, 0x03, 0x00, // "
+  0x12, 0x3f, 0x12, 0x3f, 0x12, // #
+  0x22, 0x25, 0x3f, 0x25, 0x18, // $
+  0x03, 0x33, 0x0c, 0x33, 0x30, // %
+  0x12, 0x2d, 0x2d, 0x12, 0x28, // &
+  0x00, 0x00, 0x03, 0x00, 0x00, // '
+  0x00, 0x00, 0x1e, 0x21, 0x00, // (
+  0x00, 0x21, 0x1e, 0x00, 0x00, // )
+  0x12, 0x0c, 0x3f, 0x0c, 0x12, // *
+  0x08, 0x08, 0x3e, 0x08, 0x08, // +
+  0x00, 0x20, 0x10, 0x00, 0x00, // ,
+  0x08, 0x08, 0x08, 0x08, 0x08, // -
+  0x00, 0x10, 0x38, 0x10, 0x00, // .
+  0x00, 0x30, 0x0c, 0x03, 0x00, // /
+  0x1e, 0x21, 0x2d, 0x21, 0x1e, // 0
+  0x00, 0x21, 0x3f, 0x20, 0x00, // 1
+  0x22, 0x31, 0x29, 0x25, 0x22, // 2
+  0x12, 0x21, 0x25, 0x25, 0x1a, // 3
+  0x08, 0x0c, 0x0a, 0x3f, 0x08, // 4
+  0x27, 0x25, 0x25, 0x25, 0x18, // 5
+  0x1e, 0x29, 0x29, 0x29, 0x11, // 6
+  0x01, 0x31, 0x0d, 0x03, 0x00, // 7
+  0x1a, 0x25, 0x25, 0x25, 0x1a, // 8
+  0x26, 0x29, 0x29, 0x25, 0x1e, // 9
+  0x00, 0x00, 0x12, 0x00, 0x00, // :
+  0x00, 0x20, 0x12, 0x00, 0x00, // ;
+  0x00, 0x08, 0x14, 0x22, 0x00, // <
+  0x12, 0x12, 0x12, 0x12, 0x12, // =
+  0x00, 0x22, 0x14, 0x08, 0x00, // >
+  0x00, 0x01, 0x2d, 0x05, 0x02, // ?
+
+  0x1e, 0x21, 0x2d, 0x2d, 0x0e, // @  0x40
   0x38, 0x16, 0x11, 0x16, 0x38, // A (0x41)
   0x3f, 0x25, 0x25, 0x26, 0x18, // B (0x42)
   0x1e, 0x21, 0x21, 0x21, 0x12, // C
@@ -64,10 +106,14 @@ char cfont[]=
   0x31, 0x29, 0x25, 0x23, 0x21, // Z
 };
  
-//char myoutstring[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
-//char myoutstring[]="FRICKL ";
-char myoutstring[]="HALLO ";
+//char myoutstring0[]="!\"#$%&'()*+,-./0123456789:;<=>? ";
+//char myoutstring0[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+char myoutstring0[]="FRICKL ";
+//char myoutstring0[]="HALLO ";
 int myoutstringpos=0;
+
+char *myoutstring=myoutstring0;
+int myoutstringlen=-1;
  
 void setup()
 {
@@ -78,7 +124,7 @@ void setup()
   lum=9999;
   newscr=0;
   
-  //Serial.begin(9600);
+  Serial.begin(9600);
 }
 void vscr2scr()
 { int x,y,xx,yy,xxx,yyy,sum;
@@ -92,7 +138,6 @@ void vscr2scr()
     }
   }
 }
-#define ANIMm 20
  
 void loop()
 { newscr++;
@@ -101,13 +146,14 @@ void loop()
   {
     newscr=0;
     int p0=myoutstringpos/OSf;
-    //int p0=myoutstringpos/(OSf-1); // Zeichen nur (OSf-1)/OSf breit ausgeben
+    //int p0=myoutstringpos/(OSf); // Zeichen nur (OSf-1)/OSf breit ausgeben
     int p2=p0/CFONTwidth2;
-    char c=myoutstring[p2];
+    c=myoutstring[p2];
     if (c==0) { myoutstringpos=0; p0=0; p2=p0/CFONTwidth2; c=myoutstring[p2]; }
+    if (c!=0)
+    {
     int p1=p0%CFONTwidth2;
     int bits=0;
-    if (c==0x20) c=0x40; // 0x40 is SPACE !
     if (p1<CFONTwidth && c<CFONTend) bits=cfont[(c-CFONTstart)*CFONTwidth+p1];
     
     for(y=0; y<SCRdy*OSf; y++)
@@ -123,11 +169,10 @@ void loop()
     //for(y=0; y<OSf; y++) vscr[OSf*SCRdx-1][p+y]=256;
     //for (int b=1, p=0, i=0; b<0x40 && p<OSf*6; b*=2, p+=OSf+(i++&1?1:0)) if (bits&b)
     //for(y=0; y<OSf+1; y++) vscr[OSf*SCRdx-1][p+y]=256;
-    
-    for (int b=1, p=0, i=0; b<0x40; b*=2, p=(OSf*(++i)*76)/60) if (bits&b)
+    for (int b=1, p=0, i=0; b<0x40; b*=2, p=(OSf*(++i)*YEnlA)/YEnlB) if (bits&b)
     { j=random(240)+16;
-      j=16; if (random(240)>200) j=256;
-      for(y=0; y<OSf+1; y++)
+      j=16; if (!glimmer || random(240)>200) j=256;
+      for(y=0; y<OSf+YEnl; y++)
         if (p+y<OSf*SCRdy) 
           vscr[OSf*SCRdx-1][p+y]=j;
     }
@@ -137,7 +182,8 @@ void loop()
     hellpos+=PI2/50; if (hell>PI2) hell-=PI2;
     hell=sin(hellpos)*32+32;
  
-  vscr2scr();
+    vscr2scr();
+    }
   }
   
   lum+=16; if (lum>254) lum=0;
@@ -165,4 +211,23 @@ if(0)
     //delay(1);
     digitalWrite(linePins[y], LOW);
   }
+
+  if (Serial.available()>0)
+  { c = Serial.read();
+    Serial.write(c);
+    if (myoutstringlen<0)
+    { myoutstring=(char*)malloc(myoutstringmax+2);
+      if (!myoutstring)  { myoutstring=myoutstring0; myoutstring0[0]='X'; return; } // error: out of memory!
+      myoutstringlen=0; 
+    }
+    if (c==23 || c=='|') { myoutstringlen=0; myoutstring[0]=0; myoutstring[1]=0;  myoutstringpos=0; }
+    else if (myoutstringlen<myoutstringmax)
+    { if (c>='a' && c<='z') c-=0x20;
+      if (c<CFONTstart || c>CFONTend) c='.';
+      myoutstring[myoutstringlen+1]=0;
+      myoutstring[myoutstringlen]=c;
+      myoutstringlen++;
+    }
+  }
 }
+
