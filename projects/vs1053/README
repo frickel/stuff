@@ -1,0 +1,8 @@
+
+ VS1053 Ogg Vorbis/MP3/AAC/WMA/FLAC/MIDI Audio Codec Chip Sample
+ ===============================================================
+
+ Platform: ATMega168
+ 
+ Based on http://www.penjuinlabs.com/blog/?p=42 and ported to
+ VS1053.
