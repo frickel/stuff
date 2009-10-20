@@ -9,7 +9,6 @@ int main(void)
 	cs_high(); // probably a good idea
  
 	sci_write(0x00, (1<<SM_TESTS)|(1<<SM_SDISHARE)|(1<<SM_STREAM)|(1<<SM_SDINEW));
-	spi_send(0x00); 
 	cs_low(); // for data interface
 	send_sinewave(170);
 }
