@@ -1,0 +1,5 @@
+*.a
+*.o
+*.eep
+*.hex
+applet
